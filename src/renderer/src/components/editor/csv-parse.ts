@@ -107,12 +107,7 @@ export function detectCsvDelimiter(filePath: string, content: string): string {
   if (filePath.toLowerCase().endsWith('.tsv')) {
     return '\t'
   }
-  // Why: sniff the first non-empty line for tab, semicolon, or comma to handle
-  // CSVs that were saved with a different extension. Semicolon is included
-  // because spreadsheet apps running a comma-decimal locale (most of Europe and
-  // Latin America) export `;` as the list separator; those files would
-  // otherwise render as a single column. Pipes stay out of scope; this tool is
-  // a viewer, not a general data importer.
+  // Include semicolon spreadsheet exports without adding general importer heuristics.
   // Why: strip a leading UTF-8 BOM so it doesn't get counted as part of the
   // first cell's characters (and so BOM-prefixed TSVs still sniff correctly).
   let text = content
@@ -126,11 +121,8 @@ export function detectCsvDelimiter(filePath: string, content: string): string {
   const tabs = countDelimiterOutsideQuotes(firstLine, '\t')
   const semicolons = countDelimiterOutsideQuotes(firstLine, ';')
   const commas = countDelimiterOutsideQuotes(firstLine, ',')
-  // Why: a candidate only wins when it strictly beats comma, so comma stays the
-  // RFC 4180 default on ties and files with no delimiter at all. Semicolon is
-  // checked before tab because a `;`-separated export can legitimately contain
-  // tabs inside cells, while a TSV rarely contains semicolons.
-  if (semicolons > commas && semicolons >= tabs) {
+  // Keep the existing comma/tab choice unless semicolon strictly wins.
+  if (semicolons > commas && semicolons > tabs) {
     return ';'
   }
   return tabs > commas ? '\t' : ','

@@ -92,7 +92,7 @@ describe('detectCsvDelimiter', () => {
   })
 
   it('keeps comma when semicolons only appear inside quoted fields', () => {
-    expect(detectCsvDelimiter('x.csv', '"a;b;c",d,e\n1,2,3\n')).toBe(',')
+    expect(detectCsvDelimiter('x.csv', '"a"";b;c",d,e\n1,2,3\n')).toBe(',')
   })
 
   it('prefers tab over semicolon when tabs dominate the first line', () => {
@@ -100,7 +100,45 @@ describe('detectCsvDelimiter', () => {
   })
 
   it('uses tab for .tsv files that contain semicolons', () => {
-    expect(detectCsvDelimiter('data.tsv', 'a;b;c')).toBe('\t')
+    expect(detectCsvDelimiter('data.TSV', 'a;b;c')).toBe('\t')
+  })
+
+  it.each([
+    ['a;b,c', ','],
+    ['a;b,c\td', ','],
+    ['a;b\tc', '\t'],
+    ['a,b\tc', ','],
+    ['', ','],
+    ['single', ',']
+  ])('preserves existing delimiter precedence for %j', (content, delimiter) => {
+    expect(detectCsvDelimiter('x.csv', content)).toBe(delimiter)
+  })
+
+  it('sniffs semicolons after a BOM and leading whitespace-only lines', () => {
+    expect(detectCsvDelimiter('x.csv', '\uFEFF\n \t \r\na;b\n1;2')).toBe(';')
+  })
+
+  it('parses semicolon fields with quoted separators, escaped quotes and newlines', () => {
+    const content = '\uFEFFnote;amount\r\n"she said ""hi"";\nnext";1,50\r\n'
+
+    expect(parseCsv(content, detectCsvDelimiter('x.csv', content))).toEqual({
+      rows: [
+        ['note', 'amount'],
+        ['she said "hi";\nnext', '1,50']
+      ],
+      maxColumns: 2
+    })
+  })
+
+  it('guesses semicolon when unquoted semicolons outnumber comma headers', () => {
+    // A comma file with this header is ambiguous to the first-line heuristic.
+    expect(detectCsvDelimiter('x.csv', 'notes;one;two,value\nplain,1')).toBe(';')
+  })
+
+  it('does not sniff semicolons beyond the first-line scan limit', () => {
+    const content = `${'a'.repeat(CSV_DELIMITER_SNIFF_SCAN_CODE_UNITS)};b;c`
+
+    expect(detectCsvDelimiter('x.csv', content)).toBe(',')
   })
 
   it('skips leading blank lines when sniffing', () => {
