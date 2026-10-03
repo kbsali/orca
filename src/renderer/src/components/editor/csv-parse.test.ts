@@ -160,6 +160,23 @@ describe('detectCsvDelimiter', () => {
     expect(detectCsvDelimiter('x.csv', '1,50;coffee\n2,75;lunch')).toBe(',')
   })
 
+  it('uses at most eight logical records to corroborate the existing delimiter', () => {
+    const firstEight = ['notes;one;two,value', ...Array.from({ length: 7 }, () => 'plain,1')]
+    const content = [...firstEight, 'ragged,one,two,three'].join('\n')
+    expect(detectCsvDelimiter('x.csv', content)).toBe(',')
+  })
+
+  it('does not use an unfinished quoted record at the scan boundary as corroboration', () => {
+    const prefix = 'notes;one;two,value\n"'
+    const content = `${prefix}${'x'.repeat(CSV_DELIMITER_SNIFF_SCAN_CODE_UNITS)}",1`
+    expect(detectCsvDelimiter('x.csv', content)).toBe(';')
+  })
+
+  it('corroborates complete records with CRLF, escaped quotes and a quoted newline', () => {
+    const content = 'notes;one;two,value\r\n"say ""hi"";\r\nnext",1\r\nplain,2\r\n'
+    expect(detectCsvDelimiter('x.csv', content)).toBe(',')
+  })
+
   it('does not sniff semicolons beyond the first-line scan limit', () => {
     const content = `${'a'.repeat(CSV_DELIMITER_SNIFF_SCAN_CODE_UNITS)};b;c`
 
