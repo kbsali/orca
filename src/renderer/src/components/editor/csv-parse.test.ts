@@ -130,9 +130,34 @@ describe('detectCsvDelimiter', () => {
     })
   })
 
-  it('guesses semicolon when unquoted semicolons outnumber comma headers', () => {
-    // A comma file with this header is ambiguous to the first-line heuristic.
-    expect(detectCsvDelimiter('x.csv', 'notes;one;two,value\nplain,1')).toBe(';')
+  it('keeps consistent comma columns when only the header has extra semicolons', () => {
+    const content = 'notes;one;two,value\nplain,1\nother,2'
+
+    expect(detectCsvDelimiter('x.csv', content)).toBe(',')
+    expect(parseCsv(content, detectCsvDelimiter('x.csv', content)).rows).toEqual([
+      ['notes;one;two', 'value'],
+      ['plain', '1'],
+      ['other', '2']
+    ])
+  })
+
+  it('keeps consistent tab columns when a header contains extra semicolons', () => {
+    expect(detectCsvDelimiter('x.csv', 'notes;one;two\tvalue\nplain\t1')).toBe('\t')
+  })
+
+  it('keeps a semicolon export whose unquoted comma counts vary between rows', () => {
+    expect(detectCsvDelimiter('x.csv', 'name;amount;note\nAda;1,50;lunch\nBo;2;plain')).toBe(';')
+  })
+
+  it('ignores separator-like punctuation in a multiline quoted field', () => {
+    const content = 'notes;one;two,value\n"line one\nline;two",1'
+    expect(detectCsvDelimiter('x.csv', content)).toBe(',')
+  })
+
+  it('keeps first-line inference when the rows are ambiguous or ragged', () => {
+    expect(detectCsvDelimiter('x.csv', 'a;b;c,value\nx;y;z,1')).toBe(';')
+    expect(detectCsvDelimiter('x.csv', 'a;b;c\nx;y\nz')).toBe(';')
+    expect(detectCsvDelimiter('x.csv', '1,50;coffee\n2,75;lunch')).toBe(',')
   })
 
   it('does not sniff semicolons beyond the first-line scan limit', () => {
