@@ -136,6 +136,7 @@ function hasConsistentExistingCsvColumns(text: string, delimiter: string): boole
   let delimiters = 0
   let semicolons = 0
   let inQuotes = false
+  let fieldIsEmpty = true
   let hasContent = false
   const pushRecord = (): void => {
     if (hasContent) {
@@ -143,21 +144,28 @@ function hasConsistentExistingCsvColumns(text: string, delimiter: string): boole
     }
     delimiters = 0
     semicolons = 0
+    fieldIsEmpty = true
     hasContent = false
   }
 
   for (let index = 0; index < scanLength && records.length < 8; index += 1) {
     const ch = text[index]
-    if (ch === '"') {
-      hasContent = true
-      if (inQuotes && text[index + 1] === '"' && index + 1 < scanLength) {
-        index += 1
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[index + 1] === '"' && index + 1 < scanLength) {
+          fieldIsEmpty = false
+          index += 1
+        } else {
+          inQuotes = false
+        }
       } else {
-        inQuotes = !inQuotes
+        fieldIsEmpty = false
       }
       continue
     }
-    if (inQuotes) {
+    if (ch === '"' && fieldIsEmpty) {
+      inQuotes = true
+      hasContent = true
       continue
     }
     if (ch === '\r' || ch === '\n') {
@@ -169,6 +177,9 @@ function hasConsistentExistingCsvColumns(text: string, delimiter: string): boole
     }
     if (ch === delimiter) {
       delimiters += 1
+      fieldIsEmpty = true
+    } else {
+      fieldIsEmpty = false
     }
     if (ch === ';') {
       semicolons += 1

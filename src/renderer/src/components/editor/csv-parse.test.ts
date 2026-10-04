@@ -141,6 +141,17 @@ describe('detectCsvDelimiter', () => {
     ])
   })
 
+  it.each([',', '\t'])('keeps literal quotes inside unquoted %j fields', (delimiter) => {
+    const content = `notes;one;two${delimiter}value\n6" bolts${delimiter}1\nplain${delimiter}2`
+
+    expect(detectCsvDelimiter('x.csv', content)).toBe(delimiter)
+    expect(parseCsv(content, detectCsvDelimiter('x.csv', content)).rows).toEqual([
+      ['notes;one;two', 'value'],
+      ['6" bolts', '1'],
+      ['plain', '2']
+    ])
+  })
+
   it('keeps consistent tab columns when a header contains extra semicolons', () => {
     expect(detectCsvDelimiter('x.csv', 'notes;one;two\tvalue\nplain\t1')).toBe('\t')
   })
@@ -167,9 +178,19 @@ describe('detectCsvDelimiter', () => {
   })
 
   it('does not use an unfinished quoted record at the scan boundary as corroboration', () => {
-    const prefix = 'notes;one;two,value\n"'
+    const prefix = 'notes;one;two,value\nplain,"'
     const content = `${prefix}${'x'.repeat(CSV_DELIMITER_SNIFF_SCAN_CODE_UNITS)}",1`
     expect(detectCsvDelimiter('x.csv', content)).toBe(';')
+  })
+
+  it('does not use a partial unquoted record at the scan boundary as corroboration', () => {
+    const prefix = 'notes;one;two,value\nplain,'
+    const content = `${prefix}${'x'.repeat(CSV_DELIMITER_SNIFF_SCAN_CODE_UNITS)}\nother,2`
+    expect(detectCsvDelimiter('x.csv', content)).toBe(';')
+  })
+
+  it('does not corroborate an unfinished quoted record at EOF', () => {
+    expect(detectCsvDelimiter('x.csv', 'notes;one;two,value\nplain,"unfinished')).toBe(';')
   })
 
   it('corroborates complete records with CRLF, escaped quotes and a quoted newline', () => {
